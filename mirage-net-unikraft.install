@@ -1,0 +1,24 @@
+lib: [
+  "_build/install/default/lib/mirage-net-unikraft/META"
+  "_build/install/default/lib/mirage-net-unikraft/dune-package"
+  "_build/install/default/lib/mirage-net-unikraft/libnetif_stubs.a"
+  "_build/install/default/lib/mirage-net-unikraft/netif.a"
+  "_build/install/default/lib/mirage-net-unikraft/netif.cma"
+  "_build/install/default/lib/mirage-net-unikraft/netif.cmi"
+  "_build/install/default/lib/mirage-net-unikraft/netif.cmt"
+  "_build/install/default/lib/mirage-net-unikraft/netif.cmti"
+  "_build/install/default/lib/mirage-net-unikraft/netif.cmx"
+  "_build/install/default/lib/mirage-net-unikraft/netif.cmxa"
+  "_build/install/default/lib/mirage-net-unikraft/netif.ml"
+  "_build/install/default/lib/mirage-net-unikraft/netif.mli"
+  "_build/install/default/lib/mirage-net-unikraft/opam"
+]
+libexec: [
+  "_build/install/default/lib/mirage-net-unikraft/netif.cmxs"
+]
+doc: [
+  "_build/install/default/doc/mirage-net-unikraft/README.md"
+]
+stublibs: [
+  "_build/install/default/lib/stublibs/dllnetif_stubs.so"
+]
