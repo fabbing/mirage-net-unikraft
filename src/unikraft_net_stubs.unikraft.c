@@ -93,3 +93,20 @@
 //     result = solo5_net_write(handle, buf, size);
 //     CAMLreturn(Val_int(result));
 // }
+
+#include <uk/netdev.h>
+
+struct netif {
+  struct uk_netdev  netdev;
+}
+
+int uknetdev_init()
+{
+  struct netif netif = {};
+  struct uk_netdev *netdev = &netif->netdev;
+
+
+  assert("uknetdev needs an input callback (netif_input or tcpip_input)", nf->input != NULL);
+
+   
+}

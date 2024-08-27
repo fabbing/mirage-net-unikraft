@@ -187,7 +187,7 @@ let connect devname =
     (* handle; *)
     active = true;
     mac;
-    mtu = -1;
+    mtu = -1; (* uk_netdev_mtu_get *)
     stats;
   }
 in
