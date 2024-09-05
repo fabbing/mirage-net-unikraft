@@ -96,17 +96,35 @@
 
 #include <uk/netdev.h>
 
-struct netif {
-  struct uk_netdev  netdev;
-}
-
-int uknetdev_init()
+int uknetdev_init(const char *err)
 {
-  struct netif netif = {};
-  struct uk_netdev *netdev = &netif->netdev;
+  struct uk_netdev *netdev;
+  int ret;
+  
+  // FIXME need a semaphore? (uk_semaphore_init)
 
+  // TODO handle multiple interfaces
+  netdev = uk_netdev_get(0);
+  if (!netdev) {
+    err = "Failed to acquire network device";
+    return -1;
+  }
 
-  assert("uknetdev needs an input callback (netif_input or tcpip_input)", nf->input != NULL);
+  if (uk_netdev_state_get(netdev) != UK_NETDEV_UNPROBED) {
+    err = "Network device not in unprobed state";
+    return -1;
+  }
+  ret = uk_netdev_probe(netdev);
+  if (ret < 0) {
+    err = "Failed to probe network device";
+    return -1;
+  }
+  
+  if (uk_netdev_state_get(netdev) != UK_NETDEV_UNCONFIGURED) {
+    err = "Network device not in unconfigured state";
+    return -1;
+  }
 
-   
+  // uknetdev_init
+  return 0;
 }
