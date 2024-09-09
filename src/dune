@@ -5,7 +5,7 @@
  (foreign_stubs
   (language c)
   (flags :standard -z unikraft-backend=qemu)
-  (names unikraft_net_stubs)))
+  (names unikraft_net_stubs init netbuf rx tx misc)))
 
 (rule
  (target unikraft_net_stubs.c)

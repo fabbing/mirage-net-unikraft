@@ -1,7 +1,5 @@
 (*
- * Copyright (c) 2010-2015 Anil Madhavapeddy <anil@recoil.org>
- * Copyright (C) 2015      Thomas Gazagnaire <thomas@gazagnaire.org>
- * Copyright (c) 2018      Martin Lucina <martin@lucina.net>
+ * FIXME previous authors
  * Copyright (c) 2024 Fabrice Buoro <fabrice@tarides.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -17,6 +15,23 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
+external uk_netdev_init : int -> bool * int64 * string = "uk_netdev_init"
+external uk_netdev_mac : int64 -> string = "uk_netdev_mac"
+external uk_netdev_mtu : int64 -> int = "uk_netdev_mtu" [@@noalloc]
+
+type bytes_array = Bigarray.((char, int8_unsigned_elt, c_layout) Array1.t)
+
+external uk_get_tx_buffer :
+  int64 -> int -> bool * int64 * string = "uk_get_tx_buffer"
+
+external uk_ba_of_netbuf : int64 -> bytes_array = "uk_ba_of_netbuf"
+
+external uk_netdev_tx :
+  int64 ->  int64 -> int -> bool * string = "uk_netdev_tx"
+
+external uk_netdev_rx:
+  int64 ->  Cstruct.buffer -> int -> bool * int * string = "uk_netdev_rx"
+
 open Lwt.Infix
 
 let src = Logs.Src.create "netif" ~doc:"Mirage Unikraft network module"
@@ -24,10 +39,9 @@ let src = Logs.Src.create "netif" ~doc:"Mirage Unikraft network module"
 module Log = (val Logs.src_log src : Logs.LOG)
 
 type t = {
-  id : string;
+  id : int; (* FIXME really needed? *)
   mutable active : bool;
-  (* handle : int64; *)
-  mac : Macaddr.t;
+  netif : int64;
   mtu : int;
   stats : Mirage_net.stats;
   (*
@@ -36,102 +50,85 @@ type t = {
   *)
 }
 
-type error = [ Mirage_net.Net.error | `Invalid_argument | `Unspecified_error ]
+type error = [ Mirage_net.Net.error | `Invalid_argument | `Unspecified_error | `Disconnected]
 
 let pp_error ppf = function
   | #Mirage_net.Net.error as e -> Mirage_net.Net.pp_error ppf e
   | `Invalid_argument -> Fmt.string ppf "Invalid argument"
   | `Unspecified_error -> Fmt.string ppf "Unspecified error"
+  | `Disconnected -> Fmt.string ppf "Disconnected"
 
-(*
-type unikraft_net_info = { uk_mac : string; uk_mtu : int }
 
-external solo5_net_acquire : string -> solo5_result * int64 * solo5_net_info
-  = "mirage_solo5_net_acquire"
-
-external solo5_net_read :
-  int64 -> Cstruct.buffer -> int -> int -> solo5_result * int
-  = "mirage_solo5_net_read_3"
-
-external solo5_net_write : int64 -> Cstruct.buffer -> int -> int -> solo5_result
-  = "mirage_solo5_net_write_3"
-
-let net_metrics () =
-  let open Metrics in
-  let doc = "Network statistics" in
-  let data stat =
-    Data.v
-      [
-        uint64 "received bytes" stat.Mirage_net.rx_bytes;
-        uint32 "received packets" stat.rx_pkts;
-        uint64 "transmitted bytes" stat.tx_bytes;
-        uint32 "transmitted packets" stat.tx_pkts;
-      ]
+let connect devid =
+  let aux id =
+    match uk_netdev_init id with
+    | true, netif, _ ->
+      let mtu = uk_netdev_mtu netif in
+      let stats = Mirage_net.Stats.create () in
+      let t = { id; active = true; netif; mtu; stats; } in
+      Lwt.return t
+    | false, _, err -> Lwt.fail_with err
   in
-  let tag = Tags.string "ifname" in
-  Src.v ~doc ~tags:Tags.[ tag ] ~data "net-solo5"
-
-let connect devname =
-  match solo5_net_acquire devname with
-  | SOLO5_R_OK, handle, ni -> (
-      match Macaddr.of_octets ni.solo5_mac with
-      | Error (`Msg m) ->
-          Lwt.fail_with ("Netif: Could not get MAC address: " ^ m)
-      | Ok mac ->
-          Log.info (fun f ->
-              f "Plugging into %s with mac %a mtu %d" devname Macaddr.pp mac
-                ni.solo5_mtu);
-          let stats = Mirage_net.Stats.create () in
-          let metrics = net_metrics () in
-          let t =
-            {
-              id = devname;
-              handle;
-              active = true;
-              mac;
-              mtu = ni.solo5_mtu;
-              stats;
-              metrics;
-            }
-          in
-          Lwt.return t)
-  | SOLO5_R_AGAIN, _, _ -> assert false
-  | SOLO5_R_EINVAL, _, _ ->
-      Lwt.fail_with (Fmt.str "Netif: connect(%s): Invalid argument" devname)
-  | SOLO5_R_EUNSPEC, _, _ ->
-      Lwt.fail_with (Fmt.str "Netif: connect(%s): Unspecified error" devname)
+  Log.info (fun f -> f "Plugging into %s" devid);
+  let id = try Some (int_of_string devid) with _ -> None in
+  match id with
+  | Some id' when id' >= 0 -> aux id'
+  | None ->
+      Lwt.fail_with (Fmt.str "Netif: connect(%s): Invalid argument" devid)
 
 let disconnect t =
-  Log.info (fun f -> f "Disconnect %s" t.id);
+  Log.info (fun f -> f "Disconnect %d" t.id);
   t.active <- false;
   Lwt.return_unit
+
+let write_pure t ~size fill =
+  match uk_get_tx_buffer t.netif size with
+  | false, _, err -> Error `Unspecified_error
+  | true, netbuf, _ ->
+    let ba = uk_ba_of_netbuf netbuf in
+    let buf = Cstruct.of_bigarray ~len:size ba in
+    let len = fill buf in
+    if len > size then Error `Invalid_length
+    else
+      match uk_netdev_tx t.netif netbuf len with
+      | true, _ ->
+          Mirage_net.Stats.tx t.stats (Int64.of_int len);
+          (*Metrics.add t.metrics (fun x -> x t.id) (fun d -> d t.stats);*)
+          Ok ()
+      | false, err -> Error `Unspecified_error (* FIXME forward error *)
+
+let write t ~size fill = Lwt.return (write_pure t ~size fill)
+
+let mac t = Macaddr.of_octets_exn (uk_netdev_mac t.netif)
+
+let mtu t = t.mtu
+
+let get_stats_counters t = t.stats
+let reset_stats_counters t = Mirage_net.Stats.reset t.stats
 
 (* Input a frame, and block if nothing is available *)
 let rec read t buf =
   let process () =
-    let r =
-      match
-        solo5_net_read t.handle buf.Cstruct.buffer buf.Cstruct.off
-          buf.Cstruct.len
-      with
-      | SOLO5_R_OK, len ->
-          Mirage_net.Stats.rx t.stats (Int64.of_int len);
-          Metrics.add t.metrics (fun x -> x t.id) (fun d -> d t.stats);
-          let buf = Cstruct.sub buf 0 len in
-          Ok buf
-      | SOLO5_R_AGAIN, _ -> Error `Continue
-      | SOLO5_R_EINVAL, _ -> Error `Invalid_argument
-      | SOLO5_R_EUNSPEC, _ -> Error `Unspecified_error
-    in
-    Lwt.return r
+    if not (Unikraft_os.Main.UkEngine.data_on_netdev t.id) then (
+        Lwt.return (Error `Continue))
+    else begin
+        (* TODO what about offset? *)
+        match uk_netdev_rx t.netif buf.Cstruct.buffer buf.Cstruct.len with
+        | true, 0, _ -> Lwt.return (Error `Continue)
+        | true, size, _ ->
+            Mirage_net.Stats.rx t.stats (Int64.of_int size);
+            let buf = Cstruct.sub buf 0 size in
+            Lwt.return (Ok buf)
+        | false, _, err -> Lwt.return (Error `Disconnected)
+        end
   in
   process () >>= function
-  | Ok buf -> Lwt.return (Ok buf)
   | Error `Continue ->
-      Solo5_os.Main.wait_for_work_on_handle t.handle >>= fun () -> read t buf
+    Unikraft_os.Main.UkEngine.wait_for_work_netdev t.id >>=
+      fun () -> read t buf
   | Error `Canceled -> Lwt.return (Error `Canceled)
-  | Error `Invalid_argument -> Lwt.return (Error `Invalid_argument)
-  | Error `Unspecified_error -> Lwt.return (Error `Unspecified_error)
+  | Error `Disconnected -> Lwt.return (Error `Disconnected)
+  | Ok buf -> Lwt.return (Ok buf)
 
 (* Loop and listen for packets permanently *)
 (* this function has to be tail recursive, since it is called at the
@@ -139,75 +136,15 @@ let rec read t buf =
    data is never claimed.  take care when modifying, here be dragons! *)
 let rec listen t ~header_size fn =
   match t.active with
-  | true -> (
-      let buf = Cstruct.create (t.mtu + header_size) in
-      let process () =
-        read t buf >|= function
-        | Ok buf ->
-            Lwt.async (fun () -> fn buf);
-            Ok ()
-        | Error `Canceled -> Error `Disconnected
-        | Error `Invalid_argument -> Error `Invalid_argument
-        | Error `Unspecified_error -> Error `Unspecified_error
-      in
-      process () >>= function
-      | Ok () -> (listen [@tailcall]) t ~header_size fn
-      | Error e -> Lwt.return (Error e))
+  | true ->
+    let buf = Cstruct.create (t.mtu + header_size) in
+    let process () =
+      read t buf >|= function
+      | Ok buf              -> Lwt.async (fun () -> fn buf) ; Ok ()
+      | Error `Canceled     -> Error `Disconnected
+      | Error `Disconnected -> t.active <- false ; Error `Disconnected
+    in
+    process () >>= (function
+        | Ok () -> (listen[@tailcall]) t ~header_size fn
+        | Error e -> Lwt.return (Error e))
   | false -> Lwt.return (Ok ())
-
-(* Transmit a packet from a Cstruct.t *)
-let write_pure t ~size fill =
-  let buf = Cstruct.create size in
-  let len = fill buf in
-  if len > size then Error `Invalid_length
-  else
-    match solo5_net_write t.handle buf.Cstruct.buffer 0 len with
-    | SOLO5_R_OK ->
-        Mirage_net.Stats.tx t.stats (Int64.of_int len);
-        Metrics.add t.metrics (fun x -> x t.id) (fun d -> d t.stats);
-        Ok ()
-    | SOLO5_R_AGAIN -> assert false (* Not returned by solo5_net_write() *)
-    | SOLO5_R_EINVAL -> Error `Invalid_argument
-    | SOLO5_R_EUNSPEC -> Error `Unspecified_error
-
-let write t ~size fill = Lwt.return (write_pure t ~size fill)
-let mac t = t.mac
-let mtu t = t.mtu
-let get_stats_counters t = t.stats
-let reset_stats_counters t = Mirage_net.Stats.reset t.stats
-*)
-
-let connect devname =
-  Printf.printf "netif:connect '%s'\n%!" devname;
-  Log.info (fun f -> f "Plugging into %s" devname);
-  let mac = Result.get_ok (Macaddr.of_string "00:11:22:33:44:55") in
-  let stats = Mirage_net.Stats.create () in
-  let t = {
-    id = devname;
-    (* handle; *)
-    active = true;
-    mac;
-    mtu = -1; (* uk_netdev_mtu_get *)
-    stats;
-  }
-in
-  Lwt.return t
-
-let disconnect t =
-  Printf.printf "netif:disconnect '%s'\n%!" t.id;
-  Log.info (fun f -> f "Disconnect %s" t.id);
-  t.active <- false;
-  Lwt.return_unit
-  
-let write t ~size fill =
-  Printf.printf "netif:write on %s of %d \n%!" t.id size;
-  Lwt_result.return ()
-
-let rec listen t ~header_size fn =
-  Printf.printf "netif:listen on %s\n%!" t.id;
-  Lwt_result.return ()
-
-let mac t = t.mac
-let mtu t = t.mtu
-let get_stats_counters t = t.stats
-let reset_stats_counters t = Mirage_net.Stats.reset t.stats
