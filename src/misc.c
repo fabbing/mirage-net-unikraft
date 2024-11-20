@@ -43,8 +43,7 @@ CAMLprim value alloc_result_error(const char *msg)
   CAMLparam0();
   CAMLlocal2(v_result, v_error);
 
-  v_result = caml_alloc(1, 1);
   v_error = caml_copy_string(msg);
-  Store_field(v_result, 0, v_error);
+  v_result = caml_alloc_1(1, v_error);
   CAMLreturn(v_result);
 };

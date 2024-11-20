@@ -15,24 +15,28 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  *)
 
-external uk_netdev_init : int -> (int64, string) result = "uk_netdev_init"
-external uk_netdev_stop : int64 -> unit = "uk_netdev_stop"
-external uk_netdev_mac : int64 -> string = "uk_netdev_mac"
-external uk_netdev_mtu : int64 -> int = "uk_netdev_mtu" [@@noalloc]
+type netif_ptr = int
+type netbuf_ptr = int
+
+external uk_netdev_init : int -> (netif_ptr, string) result = "uk_netdev_init"
+external uk_netdev_stop : netif_ptr -> unit = "uk_netdev_stop"
+external uk_netdev_mac : netif_ptr -> string = "uk_netdev_mac"
+external uk_netdev_mtu : netif_ptr -> int = "uk_netdev_mtu" [@@noalloc]
 
 type bytes_array =
   (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t
 
-external uk_get_tx_buffer : int64 -> int -> (int64, string) result
+external uk_get_tx_buffer : netif_ptr -> int -> (netbuf_ptr, string) result
   = "uk_get_tx_buffer"
 
-external uk_bigarray_of_netbuf : int64 -> bytes_array = "uk_bigarray_of_netbuf"
+external uk_bigarray_of_netbuf : netbuf_ptr -> bytes_array
+  = "uk_bigarray_of_netbuf"
 
-external uk_netdev_tx : int64 -> int64 -> int -> (unit, string) result
+external uk_netdev_tx : netif_ptr -> netbuf_ptr -> int -> (unit, string) result
   = "uk_netdev_tx"
 
-external uk_netdev_rx : int64 -> Cstruct.buffer -> int -> (int, string) result
-  = "uk_netdev_rx"
+external uk_netdev_rx :
+    netif_ptr -> Cstruct.buffer -> int -> (int, string) result = "uk_netdev_rx"
 
 open Lwt.Infix
 
@@ -43,7 +47,7 @@ module Log = (val Logs.src_log src : Logs.LOG)
 type t = {
   id : int;
   mutable active : bool;
-  netif : int64;
+  netif : netif_ptr;
   mtu : int;
   stats : Mirage_net.stats;
       (*
@@ -76,9 +80,8 @@ let connect devid =
         Lwt.return t
     | Error msg -> Lwt.fail_with msg
   in
-  let id = try Some (int_of_string devid) with _ -> None in
-  match id with
-  | Some id when id >= 0 ->
+  match int_of_string_opt devid with
+  | Some id when id >= 0 && id < 63 ->
       Log.info (fun f -> f "Plugging into %d" id);
       aux id
   | None -> Lwt.fail_with (Fmt.str "Netif: connect(%s): Invalid argument" devid)

@@ -100,7 +100,7 @@ CAMLprim value uk_netdev_rx(value v_netif, value v_buf, value v_size)
   CAMLparam3(v_netif, v_buf, v_size);
   CAMLlocal1(v_result);
 
-  struct netif *netif = (struct netif*)Int64_val(v_netif);
+  struct netif *netif = (struct netif*)Ptr_val(v_netif);
   uint8_t *buf = (uint8_t *)Caml_ba_data_val(v_buf);
   unsigned size = Int_val(v_size);
   const char *err = NULL;

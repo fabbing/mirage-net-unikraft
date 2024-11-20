@@ -184,7 +184,7 @@ CAMLprim value uk_netdev_init(value v_id)
   }
 
   v_result = alloc_result_ok();
-  Store_field(v_result, 0, caml_copy_int64((intptr_t)netif));
+  Store_field(v_result, 0, Val_ptr(netif));
 
   CAMLreturn(v_result);
 }
@@ -193,7 +193,7 @@ CAMLprim value uk_netdev_stop(value v_netif)
 {
   CAMLparam1(v_netif);
 
-  struct netif *netif = (struct netif*)Int64_val(v_netif);
+  struct netif *netif = (struct netif*)Ptr_val(v_netif);
   netdev_stop(netif);
 
   CAMLreturn(Val_unit);
