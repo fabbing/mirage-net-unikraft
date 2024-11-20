@@ -1,9 +1,11 @@
 #include "netif.h"
 
-#include "yield.h"
-
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "misc.h"
+#include "yield.h"
 
 static struct netif* init_netif(unsigned id)
 {
@@ -139,43 +141,60 @@ static struct netif* netdev_get(unsigned int id, const char **err)
   return netif;
 }
 
+static int netdev_stop(struct netif *netif)
+{
+  struct uk_netdev *dev = netif->dev;
+  int rc;
+
+  UK_ASSERT(dev != NULL);
+  UK_ASSERT(uk_netdev_state_get(dev) == UK_NETDEV_CONFIGURED);
+
+  rc = uk_netdev_rxq_intr_disable(dev, 0);
+  if (rc < 0) {
+    uk_pr_err("Failed to disable interrupt for netdev");
+    return -1;
+  }
+  return 0;
+}
+
 #define CAML_NAME_SPACE
 #include <caml/mlvalues.h>
 #include <caml/memory.h>
 #include <caml/alloc.h>
 
-#include <assert.h> // TODO remove
-
-// FIXME return a Result?
 CAMLprim value uk_netdev_init(value v_id)
 {
   CAMLparam1(v_id);
   CAMLlocal2(v_result, v_error);
-
-  v_result = caml_alloc_tuple(3);
-  Store_field(v_result, 0, Val_false);
-  Store_field(v_result, 1, caml_copy_int64(0));
-  Store_field(v_result, 2, caml_copy_string(""));
-
   const char *err = NULL;
-  assert(Int_val(v_id) >= 0); // TODO do it on OCaml side
   const unsigned id = Int_val(v_id);
+
+  UK_ASSERT(id >= 0);
+
   struct netif *netif = netdev_get(id, &err);
   if (!netif) {
-    v_error = caml_copy_string(err);
-    Store_field(v_result, 2, v_error);
-    CAMLreturn(v_result);
+      v_result = alloc_result_error(err);
+      CAMLreturn(v_result);
   }
 
   const int rc = netdev_configure(netif, &err);
   if (rc) {
-    v_error = caml_copy_string(err);
-    Store_field(v_result, 2, v_error);
+    v_result = alloc_result_error(err);
     CAMLreturn(v_result);
   }
 
-  Store_field(v_result, 0, Val_true);
-  Store_field(v_result, 1, caml_copy_int64((intptr_t)netif));
+  v_result = alloc_result_ok();
+  Store_field(v_result, 0, caml_copy_int64((intptr_t)netif));
+
   CAMLreturn(v_result);
 }
 
+CAMLprim value uk_netdev_stop(value v_netif)
+{
+  CAMLparam1(v_netif);
+
+  struct netif *netif = (struct netif*)Int64_val(v_netif);
+  netdev_stop(netif);
+
+  CAMLreturn(Val_unit);
+}
