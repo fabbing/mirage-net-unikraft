@@ -17,18 +17,19 @@
 
 external uk_netdev_init : int -> (int64, string) result = "uk_netdev_init"
 external uk_netdev_stop : int64 -> unit = "uk_netdev_stop"
-
 external uk_netdev_mac : int64 -> string = "uk_netdev_mac"
 external uk_netdev_mtu : int64 -> int = "uk_netdev_mtu" [@@noalloc]
 
 type bytes_array =
   (char, Bigarray.int8_unsigned_elt, Bigarray.c_layout) Bigarray.Array1.t
 
-external uk_get_tx_buffer : int64 -> int -> bool * int64 * string
+external uk_get_tx_buffer : int64 -> int -> (int64, string) result
   = "uk_get_tx_buffer"
 
-external uk_ba_of_netbuf : int64 -> bytes_array = "uk_ba_of_netbuf"
-external uk_netdev_tx : int64 -> int64 -> int -> bool * string = "uk_netdev_tx"
+external uk_bigarray_of_netbuf : int64 -> bytes_array = "uk_bigarray_of_netbuf"
+
+external uk_netdev_tx : int64 -> int64 -> int -> (unit, string) result
+  = "uk_netdev_tx"
 
 external uk_netdev_rx : int64 -> Cstruct.buffer -> int -> bool * int * string
   = "uk_netdev_rx"
@@ -53,13 +54,15 @@ type t = {
 
 type error =
   [ Mirage_net.Net.error
-  | `Invalid_argument
+  | `Allocation_error
+  | `Invalid_length
   | `Unspecified_error
   | `Disconnected ]
 
 let pp_error ppf = function
   | #Mirage_net.Net.error as e -> Mirage_net.Net.pp_error ppf e
-  | `Invalid_argument -> Fmt.string ppf "Invalid argument"
+  | `Allocation_error -> Fmt.string ppf "Allocation error"
+  | `Invalid_length -> Fmt.string ppf "Invalid length"
   | `Unspecified_error -> Fmt.string ppf "Unspecified error"
   | `Disconnected -> Fmt.string ppf "Disconnected"
 
@@ -71,7 +74,7 @@ let connect devid =
         let stats = Mirage_net.Stats.create () in
         let t = { id; active = true; netif; mtu; stats } in
         Lwt.return t
-    | Error err -> Lwt.fail_with err
+    | Error msg -> Lwt.fail_with msg
   in
   let id = try Some (int_of_string devid) with _ -> None in
   match id with
@@ -88,19 +91,21 @@ let disconnect t =
 
 let write_pure t ~size fill =
   match uk_get_tx_buffer t.netif size with
-  | false, _, err -> Error `Unspecified_error
-  | true, netbuf, _ -> (
-      let ba = uk_ba_of_netbuf netbuf in
+  | Error _ -> Error `Allocation_error
+  | Ok netbuf -> (
+      let ba = uk_bigarray_of_netbuf netbuf in
       let buf = Cstruct.of_bigarray ~len:size ba in
       let len = fill buf in
       if len > size then Error `Invalid_length
       else
         match uk_netdev_tx t.netif netbuf len with
-        | true, _ ->
+        | Error msg ->
+            Log.err (fun f -> f "Sending packet: %s" msg);
+            Error `Unspecified_error
+        | Ok _ ->
             Mirage_net.Stats.tx t.stats (Int64.of_int len);
             (*Metrics.add t.metrics (fun x -> x t.id) (fun d -> d t.stats);*)
-            Ok ()
-        | false, err -> Error `Unspecified_error (* FIXME forward error *))
+            Ok ())
 
 let write t ~size fill = Lwt.return (write_pure t ~size fill)
 let mac t = Macaddr.of_octets_exn (uk_netdev_mac t.netif)

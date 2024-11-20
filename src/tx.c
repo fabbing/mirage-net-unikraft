@@ -64,28 +64,22 @@ CAMLprim value uk_get_tx_buffer(value v_netif, value v_size)
 {
   CAMLparam2(v_netif, v_size);
   CAMLlocal1(v_result);
-
-  v_result = caml_alloc_tuple(3);
-  Store_field(v_result, 0, Val_false);
-  Store_field(v_result, 1, Val_false);
-  Store_field(v_result, 2, caml_copy_string(""));
-
   struct netif *netif = (struct netif*)Int64_val(v_netif);
   size_t size = Int_val(v_size);
-  const char *err;
+  const char *err = NULL;
 
   struct uk_netbuf *nb = get_tx_buffer(netif, size, &err);
   if (!nb) {
-    Store_field(v_result, 2, caml_copy_string(err));
+    v_result = alloc_result_error(err);
     CAMLreturn(v_result);
   }
 
-  Store_field(v_result, 0, Val_true);
-  Store_field(v_result, 1, caml_copy_int64((intptr_t)nb));
+  v_result = alloc_result_ok();
+  Store_field(v_result, 0, caml_copy_int64((intptr_t)nb));
   CAMLreturn(v_result);
 }
 
-CAMLprim value uk_ba_of_netbuf(value v_netbuf)
+CAMLprim value uk_bigarray_of_netbuf(value v_netbuf)
 {
   CAMLparam1(v_netbuf);
   CAMLlocal1(v_ba);
@@ -102,21 +96,18 @@ CAMLprim value uk_netdev_tx(value v_netif, value v_netbuf, value v_size)
 {
   CAMLparam3(v_netif, v_netbuf, v_size);
   CAMLlocal1(v_result);
-
-  v_result = caml_alloc_tuple(2);
-  Store_field(v_result, 0, Val_false);
-  Store_field(v_result, 1, caml_copy_string(""));
-
   struct netif *netif = (struct netif*)Int64_val(v_netif);
   struct uk_netbuf *netbuf = (struct uk_netbuf*)Int64_val(v_netbuf);
   int64_t size = Int_val(v_size);
   const char *err = NULL;
+
   const int ret = netdev_tx(netif->dev, netbuf, size, &err);
   if (ret) {
-    Store_field(v_result, 1, caml_copy_string(err));
+      v_result = alloc_result_error(err);
     CAMLreturn(v_result);
   }
 
-  Store_field(v_result, 0, Val_true);
+  v_result = alloc_result_ok();
+  Store_field(v_result, 0, Val_unit);
   CAMLreturn(v_result);
 }
