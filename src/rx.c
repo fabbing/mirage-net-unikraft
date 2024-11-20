@@ -98,23 +98,17 @@ static int netdev_rx(struct netif* netif, uint8_t *buf, unsigned *size,
 CAMLprim value uk_netdev_rx(value v_netif, value v_buf, value v_size)
 {
   CAMLparam3(v_netif, v_buf, v_size);
-  CAMLlocal2(v_result, v_error);
+  CAMLlocal1(v_result);
 
   struct netif *netif = (struct netif*)Int64_val(v_netif);
   uint8_t *buf = (uint8_t *)Caml_ba_data_val(v_buf);
   unsigned size = Int_val(v_size);
-
-  v_result = caml_alloc_tuple(3);
-  Store_field(v_result, 0, Val_false);
-  Store_field(v_result, 1, Val_int(0));
-  Store_field(v_result, 2, caml_copy_string(""));
-
   const char *err = NULL;
+
   const int rc = netdev_rx(netif, buf, &size, &err);
   if (rc < 0) {
     uk_pr_err("netdev_rx: failed with %s\n", err);
-    v_error = caml_copy_string(err);
-    Store_field(v_result, 2, v_error);
+    v_result = alloc_result_error(err);
     CAMLreturn(v_result);
   }
 
@@ -125,9 +119,9 @@ CAMLprim value uk_netdev_rx(value v_netif, value v_buf, value v_size)
     set_netdev_queue_empty(netif->id);
   }
 
-  Store_field(v_result, 0, Val_true);
-  Store_field(v_result, 1, Val_int(size));
-
   uk_pr_debug("uk_netdev_rx: read %d bytes\n", size);
+
+  v_result = alloc_result_ok();
+  Store_field(v_result, 0, Val_int(size));
   CAMLreturn(v_result);
 }

@@ -31,7 +31,7 @@ external uk_bigarray_of_netbuf : int64 -> bytes_array = "uk_bigarray_of_netbuf"
 external uk_netdev_tx : int64 -> int64 -> int -> (unit, string) result
   = "uk_netdev_tx"
 
-external uk_netdev_rx : int64 -> Cstruct.buffer -> int -> bool * int * string
+external uk_netdev_rx : int64 -> Cstruct.buffer -> int -> (int, string) result
   = "uk_netdev_rx"
 
 open Lwt.Infix
@@ -121,19 +121,21 @@ let rec read t buf =
     else
       (* TODO what about offset? *)
       match uk_netdev_rx t.netif buf.Cstruct.buffer buf.Cstruct.len with
-      | true, 0, _ -> Lwt.return (Error `Continue)
-      | true, size, _ ->
+      | Ok 0 -> Lwt.return (Error `Continue)
+      | Ok size ->
           Mirage_net.Stats.rx t.stats (Int64.of_int size);
           let buf = Cstruct.sub buf 0 size in
           Lwt.return (Ok buf)
-      | false, _, err -> Lwt.return (Error `Disconnected)
+      | Error msg ->
+          Log.err (fun f -> f "Error receiving: %s" msg);
+          Lwt.return (Error `Unspecified_error)
   in
   process () >>= function
   | Error `Continue ->
       Unikraft_os.Main.UkEngine.wait_for_work_netdev t.id >>= fun () ->
       read t buf
   | Error `Canceled -> Lwt.return (Error `Canceled)
-  | Error `Disconnected -> Lwt.return (Error `Disconnected)
+  | Error `Unspecified_error -> Lwt.return (Error `Disconnected)
   | Ok buf -> Lwt.return (Ok buf)
 
 (* Loop and listen for packets permanently *)
