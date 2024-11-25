@@ -49,7 +49,7 @@ static struct uk_netbuf* get_tx_buffer(struct netif *netif, size_t size,
     return NULL;
   }
   nb->len = size;
-
+  memset(nb->data, 0, nb->len);
   return nb;
 }
 
