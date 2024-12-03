@@ -84,7 +84,7 @@ let connect devid =
   | Some id when id >= 0 && id < 63 ->
       Log.info (fun f -> f "Plugging into %d" id);
       aux id
-  | None -> Lwt.fail_with (Fmt.str "Netif: connect(%s): Invalid argument" devid)
+  | _ -> Lwt.fail_with (Fmt.str "Netif: connect(%s): Invalid argument" devid)
 
 let disconnect t =
   Log.info (fun f -> f "Disconnect %d" t.id);
