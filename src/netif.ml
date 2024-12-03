@@ -66,9 +66,7 @@ type error =
 let pp_error ppf = function
   | #Mirage_net.Net.error as e -> Mirage_net.Net.pp_error ppf e
   | `Allocation_error -> Fmt.string ppf "Allocation error"
-  | `Invalid_length -> Fmt.string ppf "Invalid length"
   | `Unspecified_error -> Fmt.string ppf "Unspecified error"
-  | `Disconnected -> Fmt.string ppf "Disconnected"
 
 let connect devid =
   let aux id =
