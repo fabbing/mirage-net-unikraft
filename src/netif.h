@@ -5,7 +5,7 @@
 #include <uk/assert.h>
 #include <uk/print.h>
 
-#define MNU_DEBUG 1 /* FIXME */
+//#define MNU_DEBUG 1
 
 #ifdef MNU_DEBUG
 #define UK_DEBUG 1
