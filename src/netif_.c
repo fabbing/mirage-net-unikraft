@@ -157,7 +157,6 @@ static int netdev_configure(struct netif *netif, const char **err)
 static struct netif* netdev_get(unsigned int id, const char **err)
 {
   struct netif *netif;
-  // FIXME need a semaphore? (uk_semaphore_init)
 
   netif = init_netif(id);
   if (!netif) {
@@ -168,22 +167,26 @@ static struct netif* netdev_get(unsigned int id, const char **err)
   struct uk_netdev *netdev = uk_netdev_get(id);
   if (!netdev) {
     *err = "Failed to acquire network device";
+    free(netif);
     return NULL;
   }
   netif->dev = netdev;
 
   if (uk_netdev_state_get(netdev) != UK_NETDEV_UNPROBED) {
     *err = "Network device not in unprobed state";
+    free(netif);
     return NULL;
   }
   const int rc = uk_netdev_probe(netdev);
   if (rc < 0) {
     *err = "Failed to probe network device";
+    free(netif);
     return NULL;
   }
 
   if (uk_netdev_state_get(netdev) != UK_NETDEV_UNCONFIGURED) {
     *err = "Network device not in unconfigured state";
+    free(netif);
     return NULL;
   }
 
@@ -193,16 +196,14 @@ static struct netif* netdev_get(unsigned int id, const char **err)
 static int netdev_stop(struct netif *netif)
 {
   struct uk_netdev *dev = netif->dev;
-  int rc;
 
   UK_ASSERT(dev != NULL);
   UK_ASSERT(uk_netdev_state_get(dev) == UK_NETDEV_CONFIGURED);
 
-  rc = uk_netdev_rxq_intr_disable(dev, 0);
-  if (rc < 0) {
-    uk_pr_err("Failed to disable interrupt for netdev");
+  const int rc = uk_netdev_rxq_intr_disable(dev, 0);
+  if (rc < 0)
     return -1;
-  }
+
   return 0;
 }
 
