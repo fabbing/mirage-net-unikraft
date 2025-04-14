@@ -153,8 +153,8 @@ let rec read t buf =
   let process () =
     if not (Unikraft_os.Main.UkEngine.data_on_netdev t.id) then
       Lwt.return (Error `Continue)
-    else
-      (* TODO what about offset? *)
+    else (
+      assert (buf.Cstruct.off = 0);
       match uk_netdev_rx t.netif buf.Cstruct.buffer buf.Cstruct.len with
       | Ok 0 -> Lwt.return (Error `Continue)
       | Ok size ->
@@ -164,7 +164,7 @@ let rec read t buf =
           Lwt.return (Ok buf)
       | Error msg ->
           Log.err (fun f -> f "Error receiving: %s" msg);
-          Lwt.return (Error `Unspecified_error)
+          Lwt.return (Error `Unspecified_error))
   in
   process () >>= function
   | Error `Continue ->
