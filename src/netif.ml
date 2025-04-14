@@ -50,10 +50,8 @@ type t = {
   netif : netif_ptr;
   mtu : int;
   stats : Mirage_net.stats;
-      (*
   metrics :
-    (string -> Metrics.field list, Mirage_net.stats -> Metrics.data) Metrics.src;
-  *)
+    (int -> Metrics.field list, Mirage_net.stats -> Metrics.data) Metrics.src;
 }
 
 type error =
@@ -68,13 +66,29 @@ let pp_error ppf = function
   | `Allocation_error -> Fmt.string ppf "Allocation error"
   | `Unspecified_error -> Fmt.string ppf "Unspecified error"
 
+let net_metrics () =
+  let open Metrics in
+  let doc = "Network statistics" in
+  let data stat =
+    Data.v
+      [
+        uint64 "received bytes" stat.Mirage_net.rx_bytes;
+        uint32 "received packets" stat.rx_pkts;
+        uint64 "transmitted bytes" stat.tx_bytes;
+        uint32 "transmitted packets" stat.tx_pkts;
+      ]
+  in
+  let tag = Tags.int "interface" in
+  Src.v ~doc ~tags:Tags.[ tag ] ~data "net-unikraft"
+
 let connect devid =
   let aux id =
     match uk_netdev_init id with
     | Ok netif ->
         let mtu = uk_netdev_mtu netif in
         let stats = Mirage_net.Stats.create () in
-        let t = { id; active = true; netif; mtu; stats } in
+        let metrics = net_metrics () in
+        let t = { id; active = true; netif; mtu; stats; metrics } in
         Lwt.return t
     | Error msg -> Lwt.fail_with msg
   in
@@ -105,7 +119,7 @@ let write_pure t ~size fill =
             Error `Unspecified_error
         | Ok _ ->
             Mirage_net.Stats.tx t.stats (Int64.of_int len);
-            (*Metrics.add t.metrics (fun x -> x t.id) (fun d -> d t.stats);*)
+            Metrics.add t.metrics (fun x -> x t.id) (fun d -> d t.stats);
             Ok ())
 
 let write t ~size fill = Lwt.return (write_pure t ~size fill)
@@ -125,6 +139,7 @@ let rec read t buf =
       | Ok 0 -> Lwt.return (Error `Continue)
       | Ok size ->
           Mirage_net.Stats.rx t.stats (Int64.of_int size);
+          Metrics.add t.metrics (fun x -> x t.id) (fun d -> d t.stats);
           let buf = Cstruct.sub buf 0 size in
           Lwt.return (Ok buf)
       | Error msg ->
