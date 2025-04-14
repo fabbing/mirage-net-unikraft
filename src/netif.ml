@@ -120,7 +120,9 @@ let disconnect t =
 
 let write_pure t ~size fill =
   match uk_get_tx_buffer t.netif size with
-  | Error _ -> Error `Allocation_error
+  | Error msg ->
+      Log.err (fun f -> f "Allocation error: %s" msg);
+      Error `Allocation_error
   | Ok netbuf -> (
       let ba = uk_bigarray_of_netbuf netbuf in
       let buf = Cstruct.of_bigarray ~len:size ba in
