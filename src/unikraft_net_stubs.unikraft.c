@@ -31,6 +31,5 @@ CAMLprim value uk_netdev_mtu(value v_netif)
     const struct netif *netif = (struct netif*)Ptr_val(v_netif);
     const uint16_t mtu = uk_netdev_mtu_get(netif->dev);
 
-    fprintf(stderr, "uk_netdev_mtu = %d\n", mtu); // XXX
     CAMLreturn(Val_int((int)mtu));
 }
