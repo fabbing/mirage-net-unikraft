@@ -80,28 +80,6 @@ static void netdev_queue_event(struct uk_netdev *netdev, uint16_t queueid,
   signal_netdev_queue_ready(netif->id);
 }
 
-static int netdev_drain_queue(struct netif *netif)
-{
-  struct uk_netdev *netdev = netif->dev;
-  struct uk_netbuf *netbuf;
-  unsigned int count = 0;
-  int rc;
-
-  do {
-    rc = uk_netdev_rx_one(netdev, 0, &netbuf);
-    if (rc < 0)
-      return -1;
-
-    if (uk_netdev_status_notready(rc))
-      break;
-
-    count += 1;
-  } while (uk_netdev_status_more(rc));
-
-  uk_pr_info("Dropped %u packet(s)", count);
-  return 0;
-}
-
 static int netdev_configure(struct netif *netif, const char **err)
 {
   struct uk_netdev *dev = netif->dev;
@@ -170,10 +148,7 @@ static int netdev_configure(struct netif *netif, const char **err)
     return -1;
   }
   else if (rc == 1) {
-    if (netdev_drain_queue(netif) < 0) {
-      *err = "Error while draning queue";
-      return -1;
-    }
+    signal_netdev_queue_ready(netif->id);
   }
 
   return 0;
