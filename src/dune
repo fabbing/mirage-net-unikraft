@@ -4,7 +4,6 @@
  (libraries mirage-unikraft cstruct macaddr logs lwt mirage-net fmt)
  (foreign_stubs
   (language c)
-  (flags :standard -z unikraft-backend=qemu)
   (names unikraft_net_stubs init netbuf rx tx misc)))
 
 (rule
