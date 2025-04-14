@@ -197,7 +197,7 @@ static int netdev_stop(struct netif *netif)
   struct uk_netdev *dev = netif->dev;
 
   UK_ASSERT(dev != NULL);
-  UK_ASSERT(uk_netdev_state_get(dev) == UK_NETDEV_CONFIGURED);
+  UK_ASSERT(uk_netdev_state_get(dev) == UK_NETDEV_RUNNING);
 
   const int rc = uk_netdev_rxq_intr_disable(dev, 0);
   if (rc < 0)

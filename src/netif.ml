@@ -113,10 +113,11 @@ let connect devid =
            devid)
 
 let disconnect t =
-  Log.info (fun f -> f "Disconnect %d" t.id);
-  t.active <- false;
-  if not (uk_netdev_stop t.netif) then
-    Log.err (fun f -> f "disconnect(%d): error" t.id);
+  if t.active then (
+    Log.info (fun f -> f "Disconnect %d" t.id);
+    t.active <- false;
+    if not (uk_netdev_stop t.netif) then
+      Log.err (fun f -> f "disconnect(%d): error" t.id));
   Lwt.return_unit
 
 let write_pure t ~size fill =
