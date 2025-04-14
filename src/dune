@@ -4,10 +4,4 @@
  (libraries mirage-unikraft cstruct macaddr logs lwt mirage-net fmt)
  (foreign_stubs
   (language c)
-  (names unikraft_net_stubs init netbuf rx tx misc)))
-
-(rule
- (target unikraft_net_stubs.c)
- (deps unikraft_net_stubs.unikraft.c unikraft_net_stubs.default.c)
- (action
-  (copy unikraft_net_stubs.%{context_name}.c %{target})))
+  (names netif_ netbuf rx tx)))

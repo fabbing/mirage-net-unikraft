@@ -1,11 +1,60 @@
+/*
+ * The MIT License
+ *
+ * Copyright (c) 2024, Tarides
+ * Author(s): Fabrice Buoro <fabrice@tarides.com>
+ * Inspired by mirage-net-solo5 and lib-lwip
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 #include "netif.h"
 
 #include <assert.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "misc.h"
-#include "yield.h"
+#include <yield.h> /* provided by mirage-unikraft */
+
+// ---------------------------------------------------------------------------//
+
+CAMLprim value alloc_result_ok(void)
+{
+  CAMLparam0();
+  CAMLlocal1(v_result);
+
+  v_result = caml_alloc(1, 0);
+  CAMLreturn(v_result);
+}
+
+CAMLprim value alloc_result_error(const char *msg)
+{
+  CAMLparam0();
+  CAMLlocal2(v_result, v_error);
+
+  v_error = caml_copy_string(msg);
+  v_result = caml_alloc_1(1, v_error);
+  CAMLreturn(v_result);
+};
+
+// ---------------------------------------------------------------------------//
 
 static struct netif* init_netif(unsigned id)
 {
@@ -157,11 +206,6 @@ static int netdev_stop(struct netif *netif)
   return 0;
 }
 
-#define CAML_NAME_SPACE
-#include <caml/mlvalues.h>
-#include <caml/memory.h>
-#include <caml/alloc.h>
-
 CAMLprim value uk_netdev_init(value v_id)
 {
   CAMLparam1(v_id);
@@ -197,4 +241,30 @@ CAMLprim value uk_netdev_stop(value v_netif)
   netdev_stop(netif);
 
   CAMLreturn(Val_unit);
+}
+
+// ---------------------------------------------------------------------------//
+
+CAMLprim value uk_netdev_mac(value v_netif)
+{
+    CAMLparam1(v_netif);
+    CAMLlocal1(v_mac);
+
+    const struct netif *netif = (struct netif*)Ptr_val(v_netif);
+    const struct uk_hwaddr *hwaddr = uk_netdev_hwaddr_get(netif->dev);
+
+    const size_t len = 6;
+    v_mac = caml_alloc_string(len);
+    memcpy(Bytes_val(v_mac), hwaddr->addr_bytes, len);
+    CAMLreturn(v_mac);
+}
+
+CAMLprim value uk_netdev_mtu(value v_netif)
+{
+    CAMLparam1(v_netif);
+
+    const struct netif *netif = (struct netif*)Ptr_val(v_netif);
+    const uint16_t mtu = uk_netdev_mtu_get(netif->dev);
+
+    CAMLreturn(Val_int((int)mtu));
 }
