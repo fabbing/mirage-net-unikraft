@@ -122,7 +122,10 @@ let write_pure t ~size fill =
             Metrics.add t.metrics (fun x -> x t.id) (fun d -> d t.stats);
             Ok ())
 
-let write t ~size fill = Lwt.return (write_pure t ~size fill)
+let write t ~size fill =
+  if t.active then Lwt.return (write_pure t ~size fill)
+  else Lwt.return (Error `Disconnected)
+
 let mac t = Macaddr.of_octets_exn (uk_netdev_mac t.netif)
 let mtu t = t.mtu
 let get_stats_counters t = t.stats
@@ -175,4 +178,4 @@ let rec listen t ~header_size fn =
       process () >>= function
       | Ok () -> (listen [@tailcall]) t ~header_size fn
       | Error e -> Lwt.return (Error e))
-  | false -> Lwt.return (Ok ())
+  | false -> Lwt.return (Error `Disconnected)
