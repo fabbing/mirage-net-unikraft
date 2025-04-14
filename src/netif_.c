@@ -238,9 +238,11 @@ CAMLprim value uk_netdev_stop(value v_netif)
   CAMLparam1(v_netif);
 
   struct netif *netif = (struct netif*)Ptr_val(v_netif);
-  netdev_stop(netif);
+  const int rc = netdev_stop(netif);
+  if (rc < 0)
+    CAMLreturn(Val_false);
 
-  CAMLreturn(Val_unit);
+  CAMLreturn(Val_true);
 }
 
 // ---------------------------------------------------------------------------//

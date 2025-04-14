@@ -28,7 +28,7 @@ type netif_ptr = int
 type netbuf_ptr = int
 
 external uk_netdev_init : int -> (netif_ptr, string) result = "uk_netdev_init"
-external uk_netdev_stop : netif_ptr -> unit = "uk_netdev_stop"
+external uk_netdev_stop : netif_ptr -> bool = "uk_netdev_stop"
 external uk_netdev_mac : netif_ptr -> string = "uk_netdev_mac"
 external uk_netdev_mtu : netif_ptr -> int = "uk_netdev_mtu" [@@noalloc]
 
@@ -115,7 +115,8 @@ let connect devid =
 let disconnect t =
   Log.info (fun f -> f "Disconnect %d" t.id);
   t.active <- false;
-  uk_netdev_stop t.netif;
+  if not (uk_netdev_stop t.netif) then
+    Log.err (fun f -> f "disconnect(%d): error" t.id);
   Lwt.return_unit
 
 let write_pure t ~size fill =
