@@ -43,8 +43,6 @@ uint16_t netdev_alloc_rxpkts(void *argp, struct uk_netbuf *nb[], uint16_t count)
       break;
     }
   }
-
-  uk_pr_debug("Allocated %d buffers\n", i);
   return i;
 }
 
@@ -59,43 +57,21 @@ static int netdev_rx(struct netif* netif, uint8_t *buf, unsigned *size,
   struct uk_netdev *dev = netif->dev;
   struct uk_netbuf *nb;
   unsigned bufsize = *size;
-  int rc;
 
-  uk_pr_debug("netdev_rx: buffer=%p, size=%lu)\n", buf, size); // XXX
   *size = 0;
 
-  rc = uk_netdev_rx_one(dev, 0, &nb);
-  uk_pr_debug("uk_netdev_rx_one: input status %d (%c%c%c)\n",
-      rc,
-      uk_netdev_status_test_set(rc, UK_NETDEV_STATUS_SUCCESS) ? 'S' : '-',
-      uk_netdev_status_test_set(rc, UK_NETDEV_STATUS_MORE) ? 'M' : '-',
-      uk_netdev_status_test_set(rc, UK_NETDEV_STATUS_UNDERRUN) ? 'U' : '-');
-
+  const int rc = uk_netdev_rx_one(dev, 0, &nb);
   if (rc < 0) {
-    uk_pr_err("netdev_rx: failed to receive a packet\n");
     *err = "Failed to receive a packet";
     return -1;
   }
 
   if (!uk_netdev_status_successful(rc)) {
-    uk_pr_info("netdev_rx: no packet received\n");
     *err = "No packet received";
     return 0;
   }
 
-  bool more = uk_netdev_status_more(rc);
-  if (!more) {
-      uk_pr_debug("netdev_rx: no more to read\n"); // XXX
-  }
-
-  uk_pr_debug("netdev_rx: nb = %p, nb->data = %p, nb->len = %d, more = %d\n",
-          nb, nb->data, nb->len, more);
- 
-#ifdef MNU_DEBUG
-  printf("---- RX ----\n");
-  debug_bytes(nb->data, nb->len);
-  printf("------------\n");
-#endif
+  const bool more = uk_netdev_status_more(rc);
 
   if (bufsize <= nb->len) {
     *err = "Not enough room in buffer to write packet";
@@ -122,7 +98,6 @@ CAMLprim value uk_netdev_rx(value v_netif, value v_buf, value v_size)
 
   const int rc = netdev_rx(netif, buf, &size, &err);
   if (rc < 0) {
-    uk_pr_err("netdev_rx: failed with %s\n", err);
     v_result = alloc_result_error(err);
     CAMLreturn(v_result);
   }
@@ -133,8 +108,6 @@ CAMLprim value uk_netdev_rx(value v_netif, value v_buf, value v_size)
   else {
     set_netdev_queue_empty(netif->id);
   }
-
-  uk_pr_debug("uk_netdev_rx: read %d bytes\n", size);
 
   v_result = alloc_result_ok();
   Store_field(v_result, 0, Val_int(size));

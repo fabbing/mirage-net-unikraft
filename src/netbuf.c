@@ -41,7 +41,6 @@ struct uk_netbuf *netdev_alloc_rx_netbuf(const struct netif *netif)
 
   netbuf = uk_netbuf_alloc_buf(alloc, size, align, headroom, priv_len, NULL);
   if (!netbuf) {
-    uk_pr_err("Failed to allocate netbuf");
     return NULL;
   }
   netbuf->len = netbuf->buflen - headroom;
@@ -59,7 +58,6 @@ struct uk_netbuf *netdev_alloc_tx_netbuf(const struct netif *netif)
 
   netbuf = uk_netbuf_alloc_buf(alloc, size, align, headroom, priv_len, NULL);
   if (!netbuf) {
-    uk_pr_err("Failed to allocate netbuf");
     return NULL;
   }
   return netbuf;

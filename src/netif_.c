@@ -63,7 +63,6 @@ static struct netif* init_netif(unsigned id)
 
   netif->alloc = uk_alloc_get_default();
   if (!netif->alloc) {
-    uk_pr_err("Failed to get default allocator");
     free(netif);
     return NULL;
   }

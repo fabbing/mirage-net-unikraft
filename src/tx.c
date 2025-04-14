@@ -27,6 +27,7 @@
 #include "netif.h"
 
 #include <string.h>
+#include <caml/bigarray.h>
 
 static int netdev_tx(struct uk_netdev *netdev, struct uk_netbuf *netbuf,
         int64_t size, const char **err)
@@ -34,12 +35,6 @@ static int netdev_tx(struct uk_netdev *netdev, struct uk_netbuf *netbuf,
   int rc;
 
   netbuf->len = size;
-
-#ifdef MNU_DEBUG
-  printf("---- TX ----\n");
-  debug_bytes(netbuf->data, netbuf->len);
-  printf("------------\n");
-#endif
 
   do {
     rc = uk_netdev_tx_one(netdev, 0, netbuf);
@@ -50,8 +45,6 @@ static int netdev_tx(struct uk_netdev *netdev, struct uk_netbuf *netbuf,
     uk_netbuf_free_single(netbuf);
     return -1;
   }
-
-  uk_pr_debug("Wrote a packet of %ld bytes");
   return 0;
 }
 
@@ -76,13 +69,6 @@ static struct uk_netbuf* get_tx_buffer(struct netif *netif, size_t size,
   memset(nb->data, 0, nb->len);
   return nb;
 }
-
-
-#define CAML_NAME_SPACE
-#include <caml/mlvalues.h>
-#include <caml/memory.h>
-#include <caml/alloc.h>
-#include <caml/bigarray.h>
 
 CAMLprim value uk_get_tx_buffer(value v_netif, value v_size)
 {

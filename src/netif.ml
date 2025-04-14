@@ -99,13 +99,18 @@ let connect devid =
         let metrics = net_metrics () in
         let t = { id; active = true; netif; mtu; stats; metrics } in
         Lwt.return t
-    | Error msg -> Lwt.fail_with msg
+    | Error msg ->
+        Log.err (fun f -> f "connect(%d): %s" id msg);
+        Lwt.fail_with msg
   in
   match int_of_string_opt devid with
   | Some id when id >= 0 && id < 63 ->
       Log.info (fun f -> f "Plugging into %d" id);
       aux id
-  | _ -> Lwt.fail_with (Fmt.str "Netif: connect(%s): Invalid argument" devid)
+  | _ ->
+      Lwt.fail_with
+        (Fmt.str "connect(%s): net ids should be integers on this platform"
+           devid)
 
 let disconnect t =
   Log.info (fun f -> f "Disconnect %d" t.id);
