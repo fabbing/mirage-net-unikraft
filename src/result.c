@@ -1,3 +1,11 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
+/*
+ * Authors: Fabrice Buoro <fabrice@tarides.com>
+ *
+ * Copyright (c) 2024, Tarides.
+ *                     All rights reserved.
+*/
+
 #include "result.h"
 
 CAMLprim value alloc_result_ok(value v)
