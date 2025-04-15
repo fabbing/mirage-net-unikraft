@@ -31,12 +31,6 @@
 #include <uk/assert.h>
 #include <uk/print.h>
 
-#define CAML_NAME_SPACE
-#include <caml/mlvalues.h>
-#include <caml/memory.h>
-#include <caml/alloc.h>
-
-
 
 struct netif {
   struct uk_netdev      *dev;
@@ -44,10 +38,6 @@ struct netif {
   struct uk_netdev_info dev_info;
   unsigned              id;
 };
-
-/* netif_.c */
-CAMLprim value alloc_result_ok(void);
-CAMLprim value alloc_result_error(const char *msg);
 
 /* netbuf.c */
 struct uk_netbuf *netdev_alloc_rx_netbuf(const struct netif *netif);

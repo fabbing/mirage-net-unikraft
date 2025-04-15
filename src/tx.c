@@ -25,6 +25,7 @@
  */
 
 #include "netif.h"
+#include "result.h"
 
 #include <string.h>
 #include <caml/bigarray.h>

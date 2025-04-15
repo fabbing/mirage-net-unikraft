@@ -4,4 +4,4 @@
  (libraries mirage-unikraft cstruct macaddr logs lwt mirage-net fmt)
  (foreign_stubs
   (language c)
-  (names netif_ netbuf rx tx)))
+  (names netif_ netbuf rx tx result)))
