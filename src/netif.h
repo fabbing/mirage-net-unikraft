@@ -36,9 +36,6 @@
 #include <caml/memory.h>
 #include <caml/alloc.h>
 
-#ifdef MNU_DEBUG
-#define UK_DEBUG 1
-#endif /* !MNU_DEBUG */
 
 
 struct netif {
