@@ -85,8 +85,7 @@ CAMLprim value uk_get_tx_buffer(value v_netif, value v_size)
     CAMLreturn(v_result);
   }
 
-  v_result = alloc_result_ok();
-  Store_field(v_result, 0, Val_ptr(nb));
+  v_result = alloc_result_ok(Val_ptr(nb));
   CAMLreturn(v_result);
 }
 
@@ -118,7 +117,6 @@ CAMLprim value uk_netdev_tx(value v_netif, value v_netbuf, value v_size)
     CAMLreturn(v_result);
   }
 
-  v_result = alloc_result_ok();
-  Store_field(v_result, 0, Val_unit);
+  v_result = alloc_result_ok(Val_unit);
   CAMLreturn(v_result);
 }

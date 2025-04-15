@@ -206,8 +206,7 @@ CAMLprim value uk_netdev_init(value v_id)
     CAMLreturn(v_result);
   }
 
-  v_result = alloc_result_ok();
-  Store_field(v_result, 0, Val_ptr(netif));
+  v_result = alloc_result_ok(Val_ptr(netif));
 
   CAMLreturn(v_result);
 }

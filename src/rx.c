@@ -110,7 +110,6 @@ CAMLprim value uk_netdev_rx(value v_netif, value v_buf, value v_size)
     set_netdev_queue_empty(netif->id);
   }
 
-  v_result = alloc_result_ok();
-  Store_field(v_result, 0, Val_int(size));
+  v_result = alloc_result_ok(Val_int(size));
   CAMLreturn(v_result);
 }
