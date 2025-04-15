@@ -109,7 +109,7 @@ let connect devid =
       aux id
   | _ ->
       Lwt.fail_with
-        (Fmt.str "connect(%s): net ids should be integers on this platform"
+        (Fmt.str "connect(%s): net ids should be integers between 0 and 62 (inclusive) on this platform"
            devid)
 
 let disconnect t =
