@@ -27,7 +27,7 @@ external uk_netdev_tx : netif_ptr -> netbuf_ptr -> int -> (unit, string) result
   = "uk_netdev_tx"
 
 external uk_netdev_rx :
-    netif_ptr -> Cstruct.buffer -> int -> (int, string) result = "uk_netdev_rx"
+  netif_ptr -> Cstruct.buffer -> int -> (int, string) result = "uk_netdev_rx"
 
 open Lwt.Infix
 
@@ -91,7 +91,9 @@ let connect devid =
       aux id
   | _ ->
       Lwt.fail_with
-        (Fmt.str "connect(%s): net ids should be integers between 0 and 62 (inclusive) on this platform"
+        (Fmt.str
+           "connect(%s): net ids should be integers between 0 and 62 \
+            (inclusive) on this platform"
            devid)
 
 let disconnect t =
