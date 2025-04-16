@@ -135,7 +135,6 @@ let rec read t buf =
       | Ok size ->
           Mirage_net.Stats.rx t.stats (Int64.of_int size);
           Metrics.add t.metrics (fun x -> x t.id) (fun d -> d t.stats);
-          let buf = Cstruct.sub buf 0 size in
           Lwt.return (Ok buf)
       | Error msg -> Lwt.return (Error (`Generic_error msg)))
   in
