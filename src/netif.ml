@@ -45,17 +45,11 @@ type t = {
     (int -> Metrics.field list, Mirage_net.stats -> Metrics.data) Metrics.src;
 }
 
-type error =
-  [ Mirage_net.Net.error
-  | `Allocation_error
-  | `Invalid_length
-  | `Unspecified_error
-  | `Disconnected ]
+type error = [ Mirage_net.Net.error | `Generic_error of string ]
 
 let pp_error ppf = function
   | #Mirage_net.Net.error as e -> Mirage_net.Net.pp_error ppf e
-  | `Allocation_error -> Fmt.string ppf "Allocation error"
-  | `Unspecified_error -> Fmt.string ppf "Unspecified error"
+  | `Generic_error msg -> Fmt.string ppf msg
 
 let net_metrics () =
   let open Metrics in
@@ -106,9 +100,7 @@ let disconnect t =
 
 let write_pure t ~size fill =
   match uk_get_tx_buffer t.netif size with
-  | Error msg ->
-      Log.err (fun f -> f "Allocation error: %s" msg);
-      Error `Allocation_error
+  | Error msg -> Error (`Generic_error msg)
   | Ok netbuf -> (
       let ba = uk_bigarray_of_netbuf netbuf in
       let buf = Cstruct.of_bigarray ~len:size ba in
@@ -116,9 +108,7 @@ let write_pure t ~size fill =
       if len > size then Error `Invalid_length
       else
         match uk_netdev_tx t.netif netbuf len with
-        | Error msg ->
-            Log.err (fun f -> f "Sending packet: %s" msg);
-            Error `Unspecified_error
+        | Error msg -> Error (`Generic_error msg)
         | Ok _ ->
             Mirage_net.Stats.tx t.stats (Int64.of_int len);
             Metrics.add t.metrics (fun x -> x t.id) (fun d -> d t.stats);
@@ -147,16 +137,13 @@ let rec read t buf =
           Metrics.add t.metrics (fun x -> x t.id) (fun d -> d t.stats);
           let buf = Cstruct.sub buf 0 size in
           Lwt.return (Ok buf)
-      | Error msg ->
-          Log.err (fun f -> f "Error receiving: %s" msg);
-          Lwt.return (Error `Unspecified_error))
+      | Error msg -> Lwt.return (Error (`Generic_error msg)))
   in
   process () >>= function
   | Error `Continue ->
       Unikraft_os.Main.UkEngine.wait_for_work_netdev t.id >>= fun () ->
       read t buf
-  | Error `Canceled -> Lwt.return (Error `Canceled)
-  | Error `Unspecified_error -> Lwt.return (Error `Disconnected)
+  | Error (`Generic_error msg) as err -> Lwt.return err
   | Ok buf -> Lwt.return (Ok buf)
 
 (* Loop and listen for packets permanently *)
@@ -172,7 +159,6 @@ let rec listen t ~header_size fn =
         | Ok buf ->
             Lwt.async (fun () -> fn buf);
             Ok ()
-        | Error `Canceled -> Error `Disconnected
         | Error `Disconnected ->
             t.active <- false;
             Error `Disconnected
