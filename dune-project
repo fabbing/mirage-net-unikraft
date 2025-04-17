@@ -13,12 +13,11 @@
  (description "This library implements the MirageOS network interface for Unikraft targets.")
  (depends
   (ocaml (>= "5.2.0"))
-  (dune (>= "2.0"))
   (cstruct (>= "1.0.1"))
   (lwt (>= "2.4.3"))
   (mirage-net (>= "3.0.0"))
   (macaddr ( >= "4.0.0"))
   (mirage-unikraft (>= "1.0.0"))
   (logs (>= "0.6.0"))
-  (metrics (>= "1.0.0"))
+  metrics
   (fmt (>= "0.8.7"))))
