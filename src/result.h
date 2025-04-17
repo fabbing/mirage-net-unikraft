@@ -2,8 +2,8 @@
 /*
  * Authors: Fabrice Buoro <fabrice@tarides.com>
  *
- * Copyright (c) 2024, Tarides.
- *                     All rights reserved.
+ * Copyright (c) 2024-2025, Tarides.
+ *               All rights reserved.
 */
 
 #ifndef RESULT_H

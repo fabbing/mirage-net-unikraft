@@ -4,8 +4,8 @@
  *          Fabrice Buoro <fabrice@tarides.com>
  *
  * Copyright (c) 2019, NEC Laboratories Europe GmbH, NEC Corporation.
- *               2024, Tarides.
- *                     All rights reserved.
+ *               2024-2025, Tarides.
+ *               All rights reserved.
 */
 
 #ifndef NETIF_H
